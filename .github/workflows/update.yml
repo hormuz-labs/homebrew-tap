@@ -1,0 +1,35 @@
+# Keeps Casks/manul.rb on the latest Manul release. Reads hormuz-labs/manul's public releases, so no extra token:
+# GitHub's own token is enough to commit here. Runs hourly; "Run workflow" on the Actions tab updates it at once.
+name: Update casks
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  manul:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release view -R hormuz-labs/manul --json tagName -q .tagName 2>/dev/null || true)
+          if [ -z "$TAG" ]; then echo "no release yet"; exit 0; fi
+          V="${TAG#v}"
+          if grep -q "version \"$V\"" Casks/manul.rb 2>/dev/null; then echo "already $V"; exit 0; fi
+          gh release download "$TAG" -R hormuz-labs/manul -p "Manul-$V-arm64.dmg" -p "Manul-$V-x64.dmg" -D dmg || { echo "dmgs not published yet"; exit 0; }
+          curl -fsSL "https://raw.githubusercontent.com/hormuz-labs/manul/$TAG/scripts/homebrew-cask.mjs" -o cask.mjs
+          node cask.mjs "$V" "$(sha256sum dmg/Manul-$V-arm64.dmg | cut -d' ' -f1)" "$(sha256sum dmg/Manul-$V-x64.dmg | cut -d' ' -f1)" > Casks/manul.rb
+          git config user.name agenthormuz
+          git config user.email 275594696+hormuz-labs@users.noreply.github.com
+          git add Casks/manul.rb
+          git commit -m "manul $V"
+          git push
