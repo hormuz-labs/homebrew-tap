@@ -1,5 +1,5 @@
-# Keeps Casks/manul.rb on the latest Manul release. Reads hormuz-labs/manul's public releases, so no extra token:
-# GitHub's own token is enough to commit here. Runs hourly; "Run workflow" on the Actions tab updates it at once.
+# Keeps each cask on its app's latest release, reading only public releases, so no extra token: GitHub's own token
+# is enough to commit here. Runs hourly; "Run workflow" on the Actions tab updates it at once.
 name: Update casks
 on:
   schedule:
@@ -32,4 +32,28 @@ jobs:
           git config user.email 275594696+hormuz-labs@users.noreply.github.com
           git add Casks/manul.rb
           git commit -m "manul $V"
+          git push
+
+  # Outreach's source is private; its installers and a ready-made cask (outreach.rb) are published to the public
+  # hormuz-labs/outreach-releases repository, so this job only copies that file.
+  outreach:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release view -R hormuz-labs/outreach-releases --json tagName -q .tagName 2>/dev/null || true)
+          if [ -z "$TAG" ]; then echo "no release yet"; exit 0; fi
+          V="${TAG#v}"
+          if grep -q "version \"$V\"" Casks/outreach.rb 2>/dev/null; then echo "already $V"; exit 0; fi
+          gh release download "$TAG" -R hormuz-labs/outreach-releases -p outreach.rb -O Casks/outreach.rb.new || { echo "cask not published yet"; exit 0; }
+          grep -q "version \"$V\"" Casks/outreach.rb.new || { echo "cask doesn't match $V"; exit 1; }
+          mv Casks/outreach.rb.new Casks/outreach.rb
+          git config user.name agenthormuz
+          git config user.email 275594696+hormuz-labs@users.noreply.github.com
+          git pull --rebase -q
+          git add Casks/outreach.rb
+          git commit -m "outreach $V"
           git push
