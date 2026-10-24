@@ -1,13 +1,13 @@
 cask "manul" do
-  version "0.4.9"
+  version "0.4.11"
 
   on_arm do
-    sha256 "debf71438a553e3ef23400f8fbc6852f12b95b7eb41db0ba46dbd776e31ed254"
+    sha256 "57b303bec106e65e4ef35c5be9e033abf322bd82c94089a3d257fded2c2a65c5"
 
     url "https://github.com/hormuz-labs/manul/releases/download/v#{version}/Manul-#{version}-arm64.dmg"
   end
   on_intel do
-    sha256 "66e09b932a7747bfa9fef9655cd53cf30cd8ba7c2844e0f322e0e72bcd65685b"
+    sha256 "6e086a2ef7c2ae85317d7200adfd841746d1e3808043a3897cc304c2827b2baa"
 
     url "https://github.com/hormuz-labs/manul/releases/download/v#{version}/Manul-#{version}-x64.dmg"
   end
