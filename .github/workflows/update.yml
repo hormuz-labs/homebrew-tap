@@ -57,3 +57,34 @@ jobs:
           git add Casks/outreach.rb
           git commit -m "outreach $V"
           git push
+
+  # Sibbal OS's source is private; its signed installers and SHA256SUMS.txt are published to the public
+  # hormuz-labs/sibbal-os-releases repository, so this job reads the checksums from there and bumps the cask.
+  sibbal-os:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release view -R hormuz-labs/sibbal-os-releases --json tagName -q .tagName 2>/dev/null || true)
+          if [ -z "$TAG" ]; then echo "no release yet"; exit 0; fi
+          V="${TAG#v}"
+          if grep -q "version \"$V\"" Casks/sibbal-os.rb; then echo "already $V"; exit 0; fi
+          gh release download "$TAG" -R hormuz-labs/sibbal-os-releases -p SHA256SUMS.txt -O sums.txt || { echo "checksums not published yet"; exit 0; }
+          ARM=$(awk -v f="Sibbal-OS-$V-arm64.dmg" '$2 == f { print $1 }' sums.txt)
+          X64=$(awk -v f="Sibbal-OS-$V-x64.dmg" '$2 == f { print $1 }' sums.txt)
+          [ ${#ARM} = 64 ] && [ ${#X64} = 64 ] || { echo "SHA256SUMS.txt has no dmgs for $V"; exit 1; }
+          # The first sha256 in the cask is on_arm's, the second on_intel's
+          awk -v v="$V" -v arm="$ARM" -v x64="$X64" '
+            /^  version "/ { sub(/"[^"]*"/, "\"" v "\"") }
+            /^    sha256 "/ { n++; sub(/"[^"]*"/, "\"" (n == 1 ? arm : x64) "\"") }
+            { print }' Casks/sibbal-os.rb > Casks/sibbal-os.rb.new
+          mv Casks/sibbal-os.rb.new Casks/sibbal-os.rb
+          git config user.name agenthormuz
+          git config user.email 275594696+hormuz-labs@users.noreply.github.com
+          git pull --rebase -q
+          git add Casks/sibbal-os.rb
+          git commit -m "sibbal-os $V"
+          git push
